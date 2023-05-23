@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MockPublicToiletService from './service/mock-public-toilets-service';
+import PublicToiletService from './service/public-toilet-service';
 
 const App = () => {
   // State variables
@@ -7,7 +8,11 @@ const App = () => {
   const [selectedPublicToilet, setSelectedPublicToilet] = useState(null);
 
   // Mock service instance
-  const service = MockPublicToiletService.getInstance();
+  //const service = MockPublicToiletService.getInstance();
+  
+  //Actual Service instance
+  const service = new PublicToiletService();
+
 
   // Fetches public toilets data when the component mounts
   useEffect(() => {
@@ -29,16 +34,28 @@ const App = () => {
   const deleteToilet = async (id) => {
     try {
       await service.deletePublicToilet(id);
-      getPublicToilets();
+
+      // Wait for 100 ms before making the GET API call. will show better ways to do this in advance chapter.
+      setTimeout(() => {
+        //clear the selected value
+        setSelectedPublicToilet(null);
+        // Make the GET API call to refresh the data table.
+        getPublicToilets();
+      }, 100);
+
     } catch (error) {
       console.log('Error deleting public toilet:', error);
     }
   };
 
+
   // Updates a public toilet
   const updateToilet = async (selectedPublicToilet) => {
     try {
       await service.updatePublicToilet(selectedPublicToilet.id, selectedPublicToilet);
+      //clear the selected value
+      setSelectedPublicToilet(null);
+      // Make the GET API call to refresh the data table.
       getPublicToilets();
     } catch (error) {
       console.log('Error updating public toilet:', error);
