@@ -1,2 +1,8 @@
 
 .DS_Store
+.vscode/*
+.terraform
+*.tfstate
+*.backup
+reactjs-springboot-workshop/public-toilet-service/terraform/.terraform.lock.hcl
+reactjs-springboot-workshop/public-toilet-service/terraform/.terraform.tfstate.lock.info
