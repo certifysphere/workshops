@@ -4,9 +4,32 @@ const bodyParser = require('body-parser');
 const app = express();
 const port = 3002;
 
+const { Pool } = require('pg');
+require('dotenv').config();
+
 // Middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+
+
+// Create a connection pool
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD
+});
+
+ // Test the database connection
+ pool.connect((err, client, release) => {
+  if (err) {
+    return console.error('Error acquiring client', err.stack);
+  }
+  console.log('Connected to PostgreSQL database');
+  client.release();
+});
+
 
 // Public Toilets Data (replace this with your database or data source)
 let publicToilets = [
