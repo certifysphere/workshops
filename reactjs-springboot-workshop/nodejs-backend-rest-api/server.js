@@ -4,9 +4,32 @@ const bodyParser = require('body-parser');
 const app = express();
 const port = 3002;
 
+const { Pool } = require('pg');
+require('dotenv').config();
+
 // Middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+
+
+// Create a connection pool
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD
+});
+
+ // Test the database connection
+ pool.connect((err, client, release) => {
+  if (err) {
+    return console.error('Error acquiring client', err.stack);
+  }
+  console.log('Connected to PostgreSQL database');
+  client.release();
+});
+
 
 // Public Toilets Data (replace this with your database or data source)
 let publicToilets = [
@@ -15,8 +38,16 @@ let publicToilets = [
 ];
 
 // Get all public toilets
+
 app.get('/public-toilets', (req, res) => {
-  res.json(publicToilets);
+  pool.query('SELECT * FROM toilets', (err, result) => {
+    if (err) {
+      console.error('Error executing query', err.stack);
+      res.status(500).json({ error: 'An error occurred while fetching toilets' });
+    } else {
+      res.json(result.rows);
+    }
+  });
 });
 
 // Get a specific public toilet by ID
@@ -32,15 +63,23 @@ app.get('/public-toilets/:id', (req, res) => {
 });
 
 // Create a new public toilet
-app.post('/public-toilets', (req, res) => {
-  const { name, location } = req.body;
-  const id = publicToilets.length + 1;
-  const newToilet = { id, name, location };
+// POST route to store a public toilet
+app.post('/public-toilets', async (req, res) => {
+  try {
+    const { name, location } = req.body;
 
-  publicToilets.push(newToilet);
+    const query = 'INSERT INTO toilets (name, location) VALUES ($1, $2) RETURNING *';
+    const values = [name, location];
 
-  res.status(201).json(newToilet);
+    const result = await pool.query(query, values);
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error while adding a toilet:', error);
+    res.status(500).json({ error: 'Error while adding a toilet' });
+  }
 });
+
 
 // Update an existing public toilet
 app.put('/public-toilets/:id', (req, res) => {
