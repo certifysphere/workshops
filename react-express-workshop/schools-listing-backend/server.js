@@ -1,7 +1,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const cors = require('cors'); // Import the cors middleware
-
+const cors = require('cors');
+const { MongoClient, ObjectId } = require('mongodb');
+require('dotenv').config();
 
 const app = express();
 const port = 3002;
@@ -9,75 +10,112 @@ const port = 3002;
 // Middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-app.use(cors()); // Enable CORS for all routes
+app.use(cors());
 
+// MongoDB connection settings
+const mongoUrl = process.env.MONGO_DB_URL;
+const client = new MongoClient(mongoUrl, { useUnifiedTopology: true });
 
-// School Data (replace this with your database or data source)
-let schools = [
-  { id: 1, name: 'School 1', grades: '1-5', city: 'City 1', state: 'State 1', country: 'Country 1', zipCode: '12345' },
-  { id: 2, name: 'School 2', grades: '6-8', city: 'City 2', state: 'State 2', country: 'Country 2', zipCode: '67890' },
-];
+// Connect to the MongoDB database
+client.connect((err) => {
+  if (err) {
+    console.error('Error connecting to MongoDB:', err);
+    return;
+  }
+  console.log('Connected to MongoDB database');
+});
+
+// MongoDB Collection Name
+const collectionName = 'schools';
 
 // Get all schools
-app.get('/schools', (req, res) => {
-  res.json(schools);
+app.get('/schools', async (req, res) => {
+  try {
+    const db = client.db();
+    const schoolsCollection = db.collection(collectionName);
+    const schools = await schoolsCollection.find({}).toArray();
+    res.json(schools);
+  } catch (error) {
+    console.error('Error fetching schools:', error);
+    res.status(500).json({ error: 'An error occurred while fetching schools' });
+  }
 });
 
 // Get a specific school by ID
-app.get('/schools/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const school = schools.find((school) => school.id === id);
+app.get('/schools/:id', async (req, res) => {
+  try {
+    const db = client.db();
+    const schoolsCollection = db.collection(collectionName);
+    const school = await schoolsCollection.findOne({ _id: ObjectId(req.params.id) });
 
-  if (school) {
-    res.json(school);
-  } else {
-    res.status(404).json({ message: 'School not found' });
+    if (school) {
+      res.json(school);
+    } else {
+      res.status(404).json({ message: 'School not found' });
+    }
+  } catch (error) {
+    console.error('Error fetching school by ID:', error);
+    res.status(500).json({ error: 'An error occurred while fetching the school' });
   }
 });
 
 // Create a new school
-app.post('/schools', (req, res) => {
-  const { name, grades, city, state, country, zipCode } = req.body;
-  const id = schools.length + 1;
-  const newSchool = { id, name, grades, city, state, country, zipCode };
+app.post('/schools', async (req, res) => {
+  try {
+    const db = client.db();
+    const schoolsCollection = db.collection(collectionName);
+    const { name, grades, city, state, country, zipCode } = req.body;
+    const newSchool = { name, grades, city, state, country, zipCode };
 
-  schools.push(newSchool);
+    const result = await schoolsCollection.insertOne(newSchool);
+    newSchool._id = result.insertedId;
 
-  res.status(201).json(newSchool);
+    res.status(201).json(newSchool);
+  } catch (error) {
+    console.error('Error creating a new school:', error);
+    res.status(500).json({ error: 'An error occurred while creating the school' });
+  }
 });
 
 // Update an existing school
-app.put('/schools/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const { name, grades, city, state, country, zipCode } = req.body;
-  const school = schools.find((school) => school.id === id);
+app.put('/schools/:id', async (req, res) => {
+  try {
+    const db = client.db();
+    const schoolsCollection = db.collection(collectionName);
+    const { name, grades, city, state, country, zipCode } = req.body;
 
-  if (school) {
-    school.name = name;
-    school.grades = grades;
-    school.city = city;
-    school.state = state;
-    school.country = country;
-    school.zipCode = zipCode;
+    const updatedSchool = await schoolsCollection.findOneAndUpdate(
+      { _id: ObjectId(req.params.id) },
+      { $set: { name, grades, city, state, country, zipCode } },
+      { returnOriginal: false }
+    );
 
-    res.json(school);
-  } else {
-    res.status(404).json({ message: 'School not found' });
+    if (updatedSchool.value) {
+      res.json(updatedSchool.value);
+    } else {
+      res.status(404).json({ message: 'School not found' });
+    }
+  } catch (error) {
+    console.error('Error updating the school:', error);
+    res.status(500).json({ error: 'An error occurred while updating the school' });
   }
 });
 
 // Delete a school
-app.delete('/schools/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const index = schools.findIndex((school) => school.id === id);
+app.delete('/schools/:id', async (req, res) => {
+  try {
+    const db = client.db();
+    const schoolsCollection = db.collection(collectionName);
+    const deletedSchool = await schoolsCollection.findOneAndDelete({ _id: ObjectId(req.params.id) });
 
-  if (index !== -1) {
-   
-
- const deletedSchool = schools.splice(index, 1);
-    res.json(deletedSchool[0]);
-  } else {
-    res.status(404).json({ message: 'School not found' });
+    if (deletedSchool.value) {
+      res.json(deletedSchool.value);
+    } else {
+      res.status(404).json({ message: 'School not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting the school:', error);
+    res.status(500).json({ error: 'An error occurred while deleting the school' });
   }
 });
 
